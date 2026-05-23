@@ -17,6 +17,7 @@ import os
 import sys
 import xlrd
 from dateutil import parser
+import datetime
 
 accountnumber = "1234546"
 filename="testfile.xls"
@@ -24,6 +25,12 @@ fixedfilename="downloadcorrectedendian.xls"
 expfilenameprefix = "TradeZella-STGlobal-"
 filezelladefaultCSVheader = '"Account Number","Account Type","Side","Symbol","CUSIP","Currency Code","Security Type","Buy/Sell","Trade Date","Settlement Date","Process Date","Price","Qty","Trade Number","Principal Amount","NET Amount","Commission Amount","Execution Time","Raw Exec. Time","Market Code","Trailer","FeeSEC","FeeMF","Fee1","Fee2","Fee3","FeeStamp","FeeTAF","Fee4","Sequence Number","Side Seq Code","Capacity Code","Office Code","Rep Code","Special Code","Instructions Trade Legend Code","Factor Type2","Trade Interest","Original TradeNumber","Entry Time","Entered By","YieldToMature","YieldToCall","Mutual Fund Sales Charge Rate","Mutual Fund Load Indicator","Transtype"\n'
 
+def xldate_as_datetime(xldate, datemode):
+   # datemode: 0 for 1900-based, 1 for 1904-based
+   epoch = datetime.datetime(1899, 12, 30)
+   excel_date = datetime.timedelta(days=xldate + 1462 * datemode)
+   return epoch + excel_date
+   
 def FixLittleEndianMarker(infilename, outfilename):
     infile = open(infilename, "rb")
     content = infile.read()
@@ -45,24 +52,26 @@ def ExceltoFileZellaCSV(processFile):
     tradesymbol = 'UNKNOWN'
     for rownum in range(sh.nrows):
         # Debug output
-        # print(sh.row_values(rownum))
+        # print(str(sh.row_values(rownum)))
         checkfile.write(str(sh.row_values(rownum))+'\n')
-
         # Checking for the new trading day date entry report row:
-        if (sh.row_values(rownum)[0].count('/')==2):
-            tradedatetime = parser.parse(sh.row_values(rownum)[0])
+        if ((isinstance(sh.row_values(rownum)[0], float)) or (str(sh.row_values(rownum)[0]).count('/')==2)):
+            if (isinstance(sh.row_values(rownum)[0], float)):
+                tradedatetime = xldate_as_datetime(sh.row_values(rownum)[0],0)
+            else:
+                tradedatetime = parser.parse(sh.row_values(rownum)[0])
             tradedate = tradedatetime.strftime("%m/%d/%Y")
             if (tradefirstdate == '12/31/1901'):
                 tradefirstdate = tradedate
         else:
             # Checking for a new trading symbol report row:
-            if (sh.row_values(rownum)[0].find(' - ')!=-1):
-                tradesymbol = sh.row_values(rownum)[0][0:sh.row_values(rownum)[0].find(' - ')]
+            if (str(sh.row_values(rownum)[0]).find(' - ')!=-1):
+                tradesymbol = str(sh.row_values(rownum)[0])[0:str(sh.row_values(rownum)[0]).find(' - ')]
             else:
                 # Checking for a trade entry report row:
-                if ((sh.row_values(rownum)[0].count(':')==2) and (len(sh.row_values(rownum)[0])==8)):
-                    tradedatetime = parser.parse(sh.row_values(rownum)[0])
-                    tradetime = tradedatetime.strftime("%H:%M:%S")
+                if (str(sh.row_values(rownum)[0]).count(':')==2):
+                    tradedatetime = parser.parse(str(sh.row_values(rownum)[0]))
+                    tradetime = tradedatetime.strftime("%H:%M:%S.%f")
                     tradequantity = str(round(sh.row_values(rownum)[6]))
                     tradeprice = str(sh.row_values(rownum)[7])
                     tradeprincipleamount = str(sh.row_values(rownum)[6] * sh.row_values(rownum)[7])
@@ -81,7 +90,7 @@ def ExceltoFileZellaCSV(processFile):
                     tradenetfee = str(sh.row_values(rownum)[21])
 
                     outputfile.write("\"" + accountnumber + "\",\"1\",") # Account Number, Account Type
-                    if (sh.row_values(rownum)[5]=='B'):
+                    if (str(sh.row_values(rownum)[5])=='B'):
                         outputfile.write('"B",') # Side
                         outputfile.write('"'+tradesymbol+'",') #Symbol
                         outputfile.write('"A111111",')   # CUSIP
