@@ -54,19 +54,16 @@ def ExceltoFileZellaCSV(processFile):
         # Debug output
         # print(str(sh.row_values(rownum)))
         checkfile.write(str(sh.row_values(rownum))+'\n')
-        # Checking for the new trading day date entry report row:
-        if ((isinstance(sh.row_values(rownum)[0], float)) or (str(sh.row_values(rownum)[0]).count('/')==2)):
-            if (isinstance(sh.row_values(rownum)[0], float)):
-                tradedatetime = xldate_as_datetime(sh.row_values(rownum)[0],0)
-            else:
-                tradedatetime = parser.parse(sh.row_values(rownum)[0])
-            tradedate = tradedatetime.strftime("%m/%d/%Y")
-            if (tradefirstdate == '12/31/1901'):
-                tradefirstdate = tradedate
-        else:
-            # Checking for a new trading symbol report row:
-            if (str(sh.row_values(rownum)[0]).find(' - ')!=-1):
-                tradesymbol = str(sh.row_values(rownum)[0])[0:str(sh.row_values(rownum)[0]).find(' - ')]
+        if not (str(sh.row_values(rownum)[0]) in ['', 'Time', 'Bought', 'Sold', 'Total', 'Equities', 'Cash:', 'Unrealized:', 'Total:']):
+            # Checking for the new trading day date entry report row:
+            if ((isinstance(sh.row_values(rownum)[0], float)) or (str(sh.row_values(rownum)[0]).count('/')==2)):
+                if (isinstance(sh.row_values(rownum)[0], float)):
+                    tradedatetime = xldate_as_datetime(sh.row_values(rownum)[0],0)
+                else:
+                    tradedatetime = parser.parse(sh.row_values(rownum)[0])
+                tradedate = tradedatetime.strftime("%m/%d/%Y")
+                if (tradefirstdate == '12/31/1901'):
+                    tradefirstdate = tradedate
             else:
                 # Checking for a trade entry report row:
                 if (str(sh.row_values(rownum)[0]).count(':')==2):
@@ -180,6 +177,12 @@ def ExceltoFileZellaCSV(processFile):
                         outputfile.write('"",') # Mutual Fund Sales Charge Rate
                         outputfile.write('"",') # Mutual Fund Load Indicator
                         outputfile.write('"Trade"\n') # Transtype
+                else:
+                    # Checking for a new trading symbol report row:
+                    if (str(sh.row_values(rownum)[0]).find(' - ')!=-1):
+                        tradesymbol = str(sh.row_values(rownum)[0])[0:str(sh.row_values(rownum)[0]).find(' - ')]
+                    else:
+                        tradesymbol = str(sh.row_values(rownum)[0])
     outputfile.close()
     checkfile.close()
     os.rename(expfilenameprefix, expfilenameprefix+tradefirstdate.replace('/','')+'-'+tradedate.replace('/','')+'.csv' )
